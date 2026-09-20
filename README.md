@@ -558,5 +558,11 @@ So the fundamental pattern is:
 }
 ```
 
+# Useful commands
+./mvnw clean compile
+./mvnw test
+docker compose up -d
+docker compose down -v
 
-
+./mvnw -Dtest=PaymentServiceUnitTest test
+./mvnw -Dtest=WebhookSignatureVerifierTest,PaymentServiceUnitTest test

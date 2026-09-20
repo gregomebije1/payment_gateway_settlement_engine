@@ -1,0 +1,65 @@
+version: "3.8"
+
+services:
+  #app:
+  #  image: gregomebije/rubimoni-api:latest
+  #  build: .
+  #  ports:
+  #    - "8080:8080"
+  #  depends_on:
+  #    - postgres
+  #    - redis
+  #  restart: always
+  #  environment:
+  #    SPRING_PROFILES_ACTIVE: prod
+  #    DB_URL: jdbc:postgresql://postgres:5432/rubimoni
+  #    DB_USER: postgres 
+  #    DB_PASSWORD: ${DB_PASS}
+  #    REDIS_HOST: redis
+  #    REDIS_PORT: 6379
+  
+  postgres:
+    image: postgres:16-alpine
+    container_name: gateway-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: gateway
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: gateway
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    #restart: always
+
+  redis:
+    image: redis:7-alpine
+    container_name: gateway-redis
+    #restart: always
+    ports:
+      - "6379:6379"
+
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: gateway-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: gateway-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+volumes:
+  postgres_data:
+
