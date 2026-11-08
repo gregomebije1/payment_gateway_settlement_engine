@@ -1,13 +1,10 @@
 # Payment Gateway Clearing & Settlement Engine
 
--  How do you prevent the same idempotency key from creating two payment records? What happens if a webhook is delivered twice?
-
-
-# Payment Gateway Clearing & Settlement Engine
-
 A backend engineering project focused on the lifecycle of payment processing: **payment state management, fee calculation, signed webhooks, asynchronous notification delivery, and reconciliation**.
 
-**Repository:** https://github.com/gregomebije1/payment_gateway_settlement_engine
+
+-  How do you prevent the same idempotency key from creating two payment records? What happens if a webhook is delivered twice?
+
 
 ## Problem
 
