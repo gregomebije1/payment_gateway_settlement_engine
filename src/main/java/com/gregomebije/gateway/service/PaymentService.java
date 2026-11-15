@@ -2,9 +2,11 @@ package com.gregomebije.gateway.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 
 import com.gregomebije.gateway.model.Models.*;
-import com.gregomebije.ledger.repository.AccountRepository;
+import com.gregomebije.gateway.repository.*;
+import com.gregomebije.gateway.integration.LedgerClient.*;
 
 @Service
 public class PaymentService {
@@ -18,6 +20,8 @@ public class PaymentService {
     private final LedgerClient ledgerClient;
     private final LedgerTokenService ledgerTokenService;
     private final JsonMapper jsonMapper;
+    private final String tenantId;
+
 
     public OutboxPoller(
             OutboxRepository outboxRepository,
@@ -27,7 +31,8 @@ public class PaymentService {
             @Qualifier("walletRestClient") RestClient walletRestClient,
             LedgerClient ledgerClient,
             LedgerTokenService ledgerTokenService,
-            JsonMapper jsonMapper) {
+            JsonMapper jsonMapper, 
+            @Value("${services.ledger.tenant-id}") String tenantId) {
         this.inboxRepository = inboxRepository;
         this.accountRepository = accountRepository;
         this.paymentRepository = paymentRepository;
@@ -36,21 +41,12 @@ public class PaymentService {
         this.ledgerClient = ledgerClient;
         this.ledgerTokenService = ledgerTokenService;
         this.jsonMapper = jsonMapper;
-    }
-
-    private CreateAccountRequest newAccount(String name) {
-        String number = String.valueOf(1000 + (int) (Math.random() * 9000))
-                + UUID.randomUUID().toString().substring(0, 4);
-        return 
+        this.tenantId = tenantId;
     }
 
     @Transactional
     public String setup() {
-        String token = ledgerTokenService.getTokenForTenant(tenantId);
-
-
-        G110 Gateway Bank (A), G200 Merchant Settlement Payable (L), G300 Processing Fee Revenue (R), G400 Interchange Expense (E)
-
+        String token = ledgerTokenService.getTokenForTenant(tenantId));
         List<AccountSpec> specs = List.of(
                 new CreateAccountRequest("G100", "Processor Receivable", "ASSET", "USD"),
                 new CreateAccountRequest("G110", "Gateway Bank", "ASSET", "USD"),
@@ -60,7 +56,6 @@ public class PaymentService {
         );
 
         Map<String, Account> accountsByNumber = new LinkedHashMap<>();
-
         for (CreateAccountRequest spec : specs) {
             try {
                 String response = ledgerClient.createAccount(token, spec));
@@ -162,6 +157,17 @@ public class PaymentService {
         outboxRepository.save(
                 new Outbox(tenantId, "wallet", "/wallet/v1/webhooks/gateway", msg1, webhookPayload)
         );
+
+        /*
+                   new CreateAccountRequest("G100", "Processor Receivable", "ASSET", "USD"),
+                new CreateAccountRequest("G110", "Gateway Bank", "ASSET", "USD"),
+                new CreateAccountRequest("G200", "Merchant Settlement Payable", "LIABILITY", "USD"),
+                new CreateAccountRequest("G300", "Processing Fee Revenue", "REVENUE", "USD"),
+                new CreateAccountRequest("G400", "Interchange Expense", "EXPENSE", "USD")
+        */
+        UUID g100AccountId = accountRepository.findByName("Processor Receivable").get().getAccountId();
+        UUID g200AccountId = accountRepository.findByName("Merchant Settlement Payable").get().getAccountId();
+        UUID g300AccountId = accountRepository.findByName("Processing Fee Revenuee").get().getAccountId();
 
        // 4. Enqueue Balanced Double-Entry Ledger SECOND using LedgerClient records directly
         var transactionRequest = new CreateTransactionRequest(
