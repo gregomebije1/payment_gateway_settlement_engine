@@ -1,13 +1,13 @@
 package com.gregomebije.gateway;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
 
-// Extending BaseIntegrationTest automatically fires up your Postgres, Redis, and Kafka containers
-class GatewayApplicationTests extends BaseIntegrationTest {
+@SpringBootTest
+class CardatabaseApplicationTests {
 
-    @Test
-    void contextLoads() {
-        // This acts as a smoke test ensuring the application boots up 
-        // and links to all three containers with zero configuration issues.
-    }
+	@Test
+	void contextLoads() {
+	}
+
 }
