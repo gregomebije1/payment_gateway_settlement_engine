@@ -3,40 +3,55 @@ package com.gregomebije.gateway.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.HttpClientErrorException;
 
-import com.gregomebije.gateway.model.Models.*;
+import tools.jackson.databind.json.JsonMapper;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map; 
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.gregomebije.gateway.dto.Models.*;
+import com.gregomebije.gateway.model.*;
 import com.gregomebije.gateway.repository.*;
-import com.gregomebije.gateway.integration.LedgerClient.*;
+import com.gregomebije.gateway.integration.LedgerClient;
 
 @Service
 public class PaymentService {
 
-    private final InboxRepository inboxRepository;
+    private final OutboxRepository outboxRepository;
     private final AccountRepository accountRepository;
+    private final InboxRepository inboxRepository;
     private final PaymentRepository paymentRepository;
-    private final OutboxRepository outboxRepository;
-    private final OutboxRepository outboxRepository;
+    private final TenantRepository tenantRepository;
     private final RestClient walletRestClient;
     private final LedgerClient ledgerClient;
     private final LedgerTokenService ledgerTokenService;
     private final JsonMapper jsonMapper;
     private final String tenantId;
 
+    private static final Logger logger = LoggerFactory.getLogger(PaymentService.class);
 
-    public OutboxPoller(
+    public PaymentService(
             OutboxRepository outboxRepository,
             AccountRepository accountRepository,
             InboxRepository inboxRepository,
             PaymentRepository paymentRepository,
+            TenantRepository tenantRepository,
             @Qualifier("walletRestClient") RestClient walletRestClient,
             LedgerClient ledgerClient,
             LedgerTokenService ledgerTokenService,
             JsonMapper jsonMapper, 
             @Value("${services.ledger.tenant-id}") String tenantId) {
-        this.inboxRepository = inboxRepository;
-        this.accountRepository = accountRepository;
-        this.paymentRepository = paymentRepository;
         this.outboxRepository = outboxRepository;
+        this.accountRepository = accountRepository;
+        this.inboxRepository = inboxRepository;
+        this.paymentRepository = paymentRepository;
+        this.tenantRepository = tenantRepository;
         this.walletRestClient = walletRestClient;
         this.ledgerClient = ledgerClient;
         this.ledgerTokenService = ledgerTokenService;
@@ -45,66 +60,63 @@ public class PaymentService {
     }
 
     @Transactional
-    public String setup() {
-        String token = ledgerTokenService.getTokenForTenant(tenantId));
-        List<AccountSpec> specs = List.of(
-                new CreateAccountRequest("G100", "Processor Receivable", "ASSET", "USD"),
-                new CreateAccountRequest("G110", "Gateway Bank", "ASSET", "USD"),
-                new CreateAccountRequest("G200", "Merchant Settlement Payable", "LIABILITY", "USD"),
-                new CreateAccountRequest("G300", "Processing Fee Revenue", "REVENUE", "USD"),
-                new CreateAccountRequest("G400", "Interchange Expense", "EXPENSE", "USD")
+    public void setup() {
+        String token = ledgerTokenService.getTokenForTenant(tenantId).toString();
+
+        List<CreateAccountRequest> specs = List.of(
+            new CreateAccountRequest("G100", "Processor Receivable", AccountType.ASSET, "USD"),
+            new CreateAccountRequest("G110", "Gateway Bank", AccountType.ASSET, "USD"),
+            new CreateAccountRequest("G200", "Merchant Settlement Payable", AccountType.LIABILITY, "USD"),
+            new CreateAccountRequest("G300", "Processing Fee Revenue", AccountType.REVENUE, "USD"),
+            new CreateAccountRequest("G400", "Interchange Expense", AccountType.EXPENSE, "USD")
         );
 
-        Map<String, Account> accountsByNumber = new LinkedHashMap<>();
+        List<Account> createdAccounts = new ArrayList<>();
+
         for (CreateAccountRequest spec : specs) {
             try {
-                String response = ledgerClient.createAccount(token, spec));
-                String rawId = response.substring(response.indexOf(':') + 1).trim();
+                String response = ledgerClient.createAccount(token, spec);
+                // Ensure response parsing strips any JSON formatting if applicable
+                String rawId = response.substring(response.indexOf(":") + 1)
+                                    .replaceAll("[\"{}]", "")
+                                    .trim();
 
                 Account account = Account.builder()
-                        .accountId(UUID.fromString(rawId))
-                        .name(spec.name())
-                        .type(spec.type())
-                        .currency(spec.currency())
-                        .active(true)
-                        .build();
+                    .accountId(UUID.fromString(rawId))
+                    .name(spec.name())
+                    .type(spec.type())
+                    .currency(spec.currency())
+                    .isActive(true)
+                    .build();
 
-                accountRepository.save(account);
+                createdAccounts.add(account);
             } catch (HttpClientErrorException.Unauthorized ex) {
-                    //ledgerTokenService.evict(tenantId);
+                ledgerTokenService.evict(tenantId);
+                logger.error("Unauthorized error in PaymentService.setup() for tenant {}", tenantId, ex);
+                throw new IllegalStateException("Failed to authenticate with ledger service", ex);
             }
         }
+
+        // Save all successfully created accounts in one DB transaction
+        accountRepository.saveAll(createdAccounts);
     }
       
 
     @Transactional
-    public String registerUser(CreateTeantRequest request) {
-        if (tenantRepository.existsByTenant(request.getName())) {
-            return IllegalArguementException("Tenant already exists");
+    public String registerUser(CreateTenantRequest request) {
+        if (tenantRepository.existsByName(request.tenantName())) {
+            throw new IllegalArgumentException("Tenant already exists");
         }
         Tenant tenant = Tenant.builder()
-                .tenant(request.getName()) 
+                .name(request.tenantName()) 
                 .build();
         tenantRepository.save(tenant);
+        return "User registered";
     }
 
     @Transactional
-    public CaptureResult capturePayment(CreateChargeRequest request) {
+    public CaptureResult charge(CreateChargeRequest request) {
 
-        /*
-        Inbox inbox = Inbox.builder()
-                .messageId(request.getIdempotencyKey())
-                .build();
-        inboxRepository.save(inbox);
-
-        
-
-        Outbox outbox = Outbox.builder()
-                .target('wallet')
-                .path("/wallet/v1/webhooks/gateway")
-                .idempotencyKey(request.getIdempotencyKey())
-                .body()
-        */
         /*
         -- [Gateway DB]
         BEGIN;
@@ -133,11 +145,11 @@ public class PaymentService {
 
         */
         // 1. Tenant-scoped deduplication check
-        int insertedRows = inboxRepository.insertIgnoreConflict(request.getTenantId(), request.getIdempotentKey());
+        int insertedRows = inboxRepository.insertIgnoreConflict(UUID.fromString(request.tenantId()), request.idempotencyKey());
         if (insertedRows == 0) {
-            return paymentRepository.findByIdAndTenantId(request.getTenantId(), request.getIdempotentKey())
-                    .map(p -> new CaptureResult(p.getId(), p.getStatus()))
-                    .orElseThrow(() -> new IllegalStateException("Duplicate inbox key with no payment: " + dep1));
+            return paymentRepository.findByTenantIdAndIdempotencyKey(UUID.fromString(request.tenantId()), request.idempotencyKey())
+                      .map(p -> new CaptureResult(p.getId().toString(), p.getStatus()))
+                    .orElseThrow(() -> new IllegalStateException("Duplicate inbox key with no payment: " + request.idempotencyKey()));
         }
 
         // 2. Insert captured payment tied to tenant
@@ -145,17 +157,19 @@ public class PaymentService {
         //       new Payment(dep1, tenantId, 10300L, 150L, "CAPTURED")
         //);
         Payment payment = Payment.builder()
-                .idempotencyKey(request.getIdempotencyKey())
-                .tenantId(request.getTenantId())
-                .amount(request.getAmount())
-                .fee(request.getFee()),
-                .status('CAPTURED')
+                .idempotencyKey(request.idempotencyKey())
+                .tenantId(UUID.fromString(request.tenantId()))
+                .amount(request.amount())
+                .fee(request.fee())
+                .status("CAPTURED")
                 .build();
+        paymentRepository.save(payment);
 
         // 3. Stage Wallet Webhook FIRST (tied to tenant)
-        var webhookPayload = new GatewayWebhookPayload("charge.captured", request.getIdempotencyKey());
+        var webhookPayload = new GatewayWebhookPayload("charge.captured", request.idempotencyKey());
         outboxRepository.save(
-                new Outbox(tenantId, "wallet", "/wallet/v1/webhooks/gateway", msg1, webhookPayload)
+                new Outbox(UUID.fromString(request.tenantId()), "wallet", "/wallet/v1/webhooks/gateway", request.idempotencyKey(), webhookPayload)
+
         );
 
         /*
@@ -167,12 +181,13 @@ public class PaymentService {
         */
         UUID g100AccountId = accountRepository.findByName("Processor Receivable").get().getAccountId();
         UUID g200AccountId = accountRepository.findByName("Merchant Settlement Payable").get().getAccountId();
-        UUID g300AccountId = accountRepository.findByName("Processing Fee Revenuee").get().getAccountId();
+        UUID g300AccountId = accountRepository.findByName("Processing Fee Revenue").get().getAccountId();
 
+        String dep2 = "d0000000-0000-0000-0000-000000000002";
        // 4. Enqueue Balanced Double-Entry Ledger SECOND using LedgerClient records directly
         var transactionRequest = new CreateTransactionRequest(
                 "Wallet funding captured",
-                entryId.toString(),
+                dep2,
                 List.of(
                         new LedgerLine(g100AccountId, LedgerLineType.DEBIT, 10300L, 0L),   // Debit G100: 10300
                         new LedgerLine(g200AccountId, LedgerLineType.CREDIT, 0L, 10150L),  // Credit G200: 10150
@@ -180,10 +195,10 @@ public class PaymentService {
                 )
         );
         outboxRepository.save(
-                new OutboxMessage(tenantId, "ledger", "/api/v1/ledgers/transactions", entryId, transactionRequest)
+                new Outbox(UUID.fromString(request.tenantId()), "ledger", "/api/v1/ledgers/transactions", dep2, transactionRequest)
         );
 
 
-        return new CaptureResult(payment.getId(), payment.getStatus());
+        return new CaptureResult(payment.getId().toString(), payment.getStatus());
     }
 }

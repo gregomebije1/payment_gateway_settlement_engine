@@ -9,23 +9,11 @@ import org.springframework.web.client.RestClient;
 import java.util.List;
 import java.util.UUID;
 
+import com.gregomebije.gateway.dto.Models.*;
+
 /** RestClient-based client for the ledger API. */
 @Component
 public class LedgerClient {
-
-    public enum LedgerLineType {
-        DEBIT, CREDIT
-    }
-
-    public record LoginRequest(String tenantId, String email, String password) {}
-    public record LoginResponse(String accessToken) {}
-
-    public record CreateUserRequest(String email, String password, String firstName, String lastName) {}
-    public record CreateTenantRequest(String email, String tenantId, String tenantName) {}
-
-    public record CreateAccountRequest(String accountNumber, String name, String type, String currency) {}
-    public record CreateTransactionRequest(String description, String idempotencyKey, List<LedgerLine> lines) {}
-    public record LedgerLine(UUID accountId, LedgerLineType ledgerLineType, long debit, long credit) {}
 
     private final RestClient ledgerRestClient;
 

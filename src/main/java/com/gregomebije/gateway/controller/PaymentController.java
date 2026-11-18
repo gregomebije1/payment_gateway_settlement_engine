@@ -1,30 +1,37 @@
 package com.gregomebije.gateway.controller;
 
+import com.gregomebije.gateway.service.*;
+import com.gregomebije.gateway.dto.Models.*;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
 @RestController
 @RequestMapping("/api/v1")
 public class PaymentController {
     
     private final PaymentService paymentService;
 
-    public PaymentController(PaymentService paymentService, LedgerService ledgerService) {
+    public PaymentController(PaymentService paymentService) {
         this.paymentService = paymentService;
     }
 
     @GetMapping("/setup")
     public ResponseEntity<String> setup() {
         paymentService.setup();
-        return ResponseEntity.status(HttpStatus.CREATED).body("User organization enrolled successfully");
+        return ResponseEntity.status(HttpStatus.CREATED).body("Setup completed");
     }
       
     @PostMapping("/onboarding/user")
-    public ResponseEntity<String> registerUser(@RequestBody CreateUserRequest request) {
-        paymentService.registerUser(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body("User organization enrolled successfully");
+    public ResponseEntity<String> registerUser(@RequestBody CreateTenantRequest request) {
+        String message = paymentService.registerUser(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(message);
     }
 
     //record CreateChargeRequest {String transactionId, long amount}
     @PostMapping("/gateway/v1/charges")
-    public ResponseEntity<String> charges(@RequestBody CreateChargeRequest request) {
+    public ResponseEntity<String> charge(@RequestBody CreateChargeRequest request) {
         paymentService.charge(request);
         return ResponseEntity.status(HttpStatus.CREATED).body("Success");
     }

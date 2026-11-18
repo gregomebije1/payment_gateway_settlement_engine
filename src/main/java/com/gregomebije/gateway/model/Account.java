@@ -1,4 +1,4 @@
-package com.gregomebije.ledger.model;
+package com.gregomebije.gateway.model;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -10,7 +10,7 @@ import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import com.gregomebije.ledger.dto.Models.AccountType;
+import com.gregomebije.gateway.dto.Models.AccountType;
 
 @Entity
 @Table(name = "accounts")
@@ -26,8 +26,8 @@ public class Account {
     @Column(name = "id", nullable = false)
     private UUID id;
     
-    @Column(name = "account_id", nullable = false, length = 64)
-    private String accountId;
+    @Column(name = "account_id", nullable = false)
+    private UUID accountId;
 
     @Column(name = "name", nullable = false)
     private String name;

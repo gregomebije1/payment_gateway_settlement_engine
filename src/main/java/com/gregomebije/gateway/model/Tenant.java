@@ -1,15 +1,19 @@
 package com.gregomebije.gateway.model;
 
 import jakarta.persistence.*;
-import lombok.*;
 import jakarta.validation.constraints.Min;
-import org.hibernate.annotations.Check;
+import lombok.*;
+
 import java.util.UUID;
 
 @Entity
-@Table(name = "tenant")
-@Check(name = "ck_entry_one_side", constraints = "(available >= 0)")
-
+@Table(
+    name = "tenant",
+    check = @CheckConstraint(
+        name = "ck_tenant_available_non_negative",
+        constraint = "available >= 0"
+    )
+)
 @Getter
 @Setter
 @NoArgsConstructor

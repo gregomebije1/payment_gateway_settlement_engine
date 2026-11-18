@@ -16,10 +16,10 @@ public class InboxId implements Serializable {
     private UUID tenantId;
 
     @Column(name = "message_id")
-    private UUID messageId;
+    private String messageId;
 
     protected InboxId() {}
-    public InboxId(UUID tenantId, UUID messageId) {
+    public InboxId(UUID tenantId, String messageId) {
         this.tenantId = tenantId;
         this.messageId = messageId;
     }

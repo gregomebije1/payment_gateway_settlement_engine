@@ -23,5 +23,5 @@ public interface InboxRepository extends JpaRepository<Inbox, InboxId> {
             VALUES (:tenantId, :messageId)
             ON CONFLICT (tenant_id, message_id) DO NOTHING
             """, nativeQuery = true)
-    int insertIgnoreConflict(@Param("tenantId") UUID tenantId, @Param("messageId") UUID messageId);
+    int insertIgnoreConflict(@Param("tenantId") UUID tenantId, @Param("messageId") String messageId);
 }

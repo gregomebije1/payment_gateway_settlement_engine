@@ -2,10 +2,10 @@ package com.gregomebije.gateway.utilities;
 
 import com.gregomebije.gateway.repository.OutboxRepository;
 import com.gregomebije.gateway.integration.LedgerClient;
-import com.gregomebije.gateway.integration.LedgerClient.CreateTransactionRequest;
-import com.gregomebije.gateway.integration.LedgerClient.LedgerLine;
-import com.gregomebije.gateway.integration.LedgerClient.LedgerLineType;
-import com.gregomebije.gateway.integration.LedgerTokenService;
+import com.gregomebije.gateway.dto.Models.*;
+import com.gregomebije.gateway.service.LedgerTokenService;
+import com.gregomebije.gateway.model.*;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -46,7 +46,7 @@ public class OutboxPoller {
         this.jsonMapper = jsonMapper;
     }
 
-    @Scheduled(fixedDelayString = "${outbox.poll-interval-ms:500}") //500 milliseconds
+    @Scheduled(fixedDelayString = "${outbox.poll-interval-ms:300000}") //500 milliseconds
     @Transactional
     public void pollAndDispatch() {
         List<Outbox> batch = outboxRepository.claimBatchForProcessing(BATCH_SIZE);
@@ -78,7 +78,7 @@ public class OutboxPoller {
         }
     }
 
-    private void dispatchWebhook(OutboxMessage message) {
+    private void dispatchWebhook(Outbox message) {
         walletRestClient.post()
                 .uri(message.getPath())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -89,20 +89,20 @@ public class OutboxPoller {
                 .toBodilessEntity();
     }
 
-    private void dispatchToLedger(OutboxMessage message) {
+    private void dispatchToLedger(Outbox message) {
         CreateTransactionRequest request = jsonMapper.convertValue(
                 message.getBody(),
                 CreateTransactionRequest.class
         );
 
         UUID tenantId = message.getTenantId();
-        String token = ledgerTokenService.getTokenForTenant(tenantId);
+        String token = ledgerTokenService.getTokenForTenant(tenantId.toString());
 
         try {
             ledgerClient.postTransaction(token, request);
         } catch (HttpClientErrorException.Unauthorized ex) {
-            ledgerTokenService.evict(tenantId);
-            String refreshedToken = ledgerTokenService.getTokenForTenant(tenantId);
+            ledgerTokenService.evict(tenantId.toString());
+            String refreshedToken = ledgerTokenService.getTokenForTenant(tenantId.toString());
             ledgerClient.postTransaction(refreshedToken, request);
         }
     }

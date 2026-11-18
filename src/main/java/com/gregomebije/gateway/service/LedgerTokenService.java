@@ -1,12 +1,13 @@
 package com.gregomebije.gateway.service;
 
-import com.gregomebije.gateway.integration.LedgerClient.LoginRequest;
+import com.gregomebije.gateway.integration.LedgerClient;
+import com.gregomebije.gateway.dto.Models.*;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -23,7 +24,7 @@ public class LedgerTokenService {
     private final String servicePassword;
     private final Duration tokenTtl;
 
-    private final ConcurrentHashMap<UUID, CachedToken> tokenCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, CachedToken> tokenCache = new ConcurrentHashMap<>();
 
     public LedgerTokenService(
             LedgerClient ledgerClient,
@@ -36,7 +37,7 @@ public class LedgerTokenService {
         this.tokenTtl = Duration.ofMinutes(ttlMinutes);
     }
 
-    public String getTokenForTenant(UUID tenantId) {
+    public String getTokenForTenant(String tenantId) {
         CachedToken cached = tokenCache.get(tenantId);
         if (cached != null && !cached.isExpired()) {
             return cached.token();
@@ -54,7 +55,7 @@ public class LedgerTokenService {
         }).token();
     }
 
-    public void evict(UUID tenantId) {
+    public void evict(String tenantId) {
         tokenCache.remove(tenantId);
     }
 }

@@ -3,20 +3,14 @@ package com.gregomebije.gateway.model;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-import java.time.OffsetDateTime;
-import java.util.UUID;
-import java.util.Map;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.io.Serializable;
-import java.time.Instant;
-import java.util.Objects;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "outbox")
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -38,16 +32,18 @@ public class Outbox {
     private String path;
 
     @Column(name = "idempotency_key", nullable = false, unique = true)
-    private UUID idempotencyKey;
+    private String idempotencyKey;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
     private Object body;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private OutboxStatus status = OutboxStatus.PENDING;
 
+    @Builder.Default
     @Column(nullable = false)
     private int attempts = 0;
 
@@ -55,14 +51,27 @@ public class Outbox {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
+    @Builder.Default
     @Column(name = "next_attempt_at", nullable = false)
-    private Instant nextAttemptAt = Instant.now();
+    private OffsetDateTime nextAttemptAt = OffsetDateTime.now();
 
     @Column(name = "published_at")
     private OffsetDateTime publishedAt;
 
+    // Custom constructor ensuring nextAttemptAt is initialized
+    public Outbox(UUID tenantId, String target, String path, String idempotencyKey, Object body) {
+        this.tenantId = tenantId;
+        this.target = target;
+        this.path = path;
+        this.idempotencyKey = idempotencyKey;
+        this.body = body;
+        this.status = OutboxStatus.PENDING;
+        this.nextAttemptAt = OffsetDateTime.now();
+    }
+    
     public void markSent() {
         this.status = OutboxStatus.SENT;
+        this.publishedAt = OffsetDateTime.now();
     }
 
     public void markFailed(int maxAttempts) {
@@ -71,7 +80,7 @@ public class Outbox {
             this.status = OutboxStatus.DEAD_LETTER;
         } else {
             long backoffSeconds = (long) Math.pow(2, this.attempts);
-            this.nextAttemptAt = Instant.now().plusSeconds(backoffSeconds);
+            this.nextAttemptAt = OffsetDateTime.now().plusSeconds(backoffSeconds);
         }
     }
 

@@ -28,12 +28,11 @@ public class Payment {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    @Column(name = "provider_ref", columnDefinition = "TEXT", unique = true, nullable = false)
-    private String providerRef;
+    @Column(name = "idempotency_key", unique = true, nullable = false)
+    private String idempotencyKey;
 
     @Column(name = "tenant_id", nullable = false)
     private UUID tenantId;
-
 
     @Column(nullable = false)
     private long amount;

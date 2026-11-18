@@ -1,23 +1,19 @@
 package com.gregomebije.gateway;
 
 import com.gregomebije.gateway.integration.LedgerClient;
-import com.gregomebije.gateway.integration.LedgerClient.CreateAccountRequest;
-import com.gregomebije.gateway.integration.LedgerClient.CreateTenantRequest;
-import com.gregomebije.gateway.integration.LedgerClient.CreateTransactionRequest;
-import com.gregomebije.gateway.integration.LedgerClient.CreateUserRequest;
-import com.gregomebije.gateway.integration.LedgerClient.LedgerLine;
-import com.gregomebije.gateway.integration.LedgerClient.LedgerLineType;
-import com.gregomebije.gateway.integration.LedgerClient.LoginRequest;
+import com.gregomebije.gateway.dto.Models.*;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.springframework.web.client.RestClientResponseException;
+
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -157,7 +153,7 @@ class LedgerClientTest {
     private CreateAccountRequest newAccount(String name) {
         String number = String.valueOf(1000 + (int) (Math.random() * 9000))
                 + UUID.randomUUID().toString().substring(0, 4);
-        return new CreateAccountRequest(number, name, "ASSET", "USD");
+        return new CreateAccountRequest(number, name, AccountType.ASSET, "USD");
     }
 
     private UUID createAccount(String name) {

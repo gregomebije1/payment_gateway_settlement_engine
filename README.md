@@ -151,3 +151,55 @@ This project explores backend engineering concerns that matter in payment system
 ## Scope
 
 This is a portfolio engineering project. The README describes the intended processing architecture and examples; implemented provider integrations, Redis-based rate limiting, retry workers, and production PCI-DSS controls should be claimed only where the code and tests substantiate them.
+==========
+
+
+curl -i -X POST http://localhost:8081/api/v1/onboarding/user \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "payment_gateway_tenant@mangital.com",
+    "password": "password",
+    "firstName": "John",
+    "lastName": "Doe"
+  }'
+  
+
+curl -i -X POST "http://localhost:8081/api/v1/onboarding/tenant" \
+-H "Content-Type: application/json" \
+-d '{
+"tenantId": "payment_gateway_tenant",
+"tenantName": "Mangital ltd",
+"email": "payment_gateway_tenant@mangital.com"
+}'
+
+
+curl -X POST "http://localhost:8081/api/v1/onboarding/login" \
+-H "Content-Type: application/json" \
+-d '{
+"tenantId": "payment_gateway_tenant",
+"email": "payment_gateway_tenant@mangital.com",
+"password": "password"
+}'
+
+
+    curl -X GET "http://localhost:8082/api/v1/setup" 
+
+curl -i -X POST "http://localhost:8082/api/v1/onboarding/user" \
+-H "Content-Type: application/json" \
+-d '{
+"tenantId": "wallet_tenant",
+"tenantName": "Wallet",
+"email": "wallet_tenant@wallet.com"
+}'
+
+curl -i -X POST "http://localhost:8082/api/v1/gateway/v1/charges" \
+-H "Content-Type: application/json" \
+-d '{
+    "tenantId": "8c387631-dc6b-45fe-95ff-09c2f7c9c620",
+    "idempotencyKey": "d0000000-0000-0000-0000-000000000001",
+    "amount": 10000,
+    "fee": 300,
+    "entryId": "f0000000-0000-0000-0000-000000000001",
+    "msg1": "e0000000-0000-0000-0000-000000000001"
+}'
+
