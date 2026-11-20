@@ -61,7 +61,7 @@ public class PaymentService {
 
     @Transactional
     public void setup() {
-        String token = ledgerTokenService.getTokenForTenant(tenantId).toString();
+        String token = ledgerTokenService.getTokenForTenant(this.tenantId).toString();
 
         List<CreateAccountRequest> specs = List.of(
             new CreateAccountRequest("G100", "Processor Receivable", AccountType.ASSET, "USD"),
@@ -82,7 +82,7 @@ public class PaymentService {
                                     .trim();
 
                 Account account = Account.builder()
-                    .accountId(UUID.fromString(rawId))
+                    .accountId(rawId)
                     .name(spec.name())
                     .type(spec.type())
                     .currency(spec.currency())
@@ -96,8 +96,6 @@ public class PaymentService {
                 throw new IllegalStateException("Failed to authenticate with ledger service", ex);
             }
         }
-
-        // Save all successfully created accounts in one DB transaction
         accountRepository.saveAll(createdAccounts);
     }
       
@@ -166,22 +164,18 @@ public class PaymentService {
         paymentRepository.save(payment);
 
         // 3. Stage Wallet Webhook FIRST (tied to tenant)
-        var webhookPayload = new GatewayWebhookPayload("charge.captured", request.idempotencyKey());
+        /*var webhookPayload = new GatewayWebhookPayload("charge.captured", request.idempotencyKey());
         outboxRepository.save(
-                new Outbox(UUID.fromString(request.tenantId()), "wallet", "/wallet/v1/webhooks/gateway", request.idempotencyKey(), webhookPayload)
-
+                new Outbox(UUID.fromString(request.tenantId()),
+                 "wallet", 
+                 "/wallet/v1/webhooks/gateway", 
+                 request.idempotencyKey(), 
+                 webhookPayload)
         );
-
-        /*
-                   new CreateAccountRequest("G100", "Processor Receivable", "ASSET", "USD"),
-                new CreateAccountRequest("G110", "Gateway Bank", "ASSET", "USD"),
-                new CreateAccountRequest("G200", "Merchant Settlement Payable", "LIABILITY", "USD"),
-                new CreateAccountRequest("G300", "Processing Fee Revenue", "REVENUE", "USD"),
-                new CreateAccountRequest("G400", "Interchange Expense", "EXPENSE", "USD")
         */
-        UUID g100AccountId = accountRepository.findByName("Processor Receivable").get().getAccountId();
-        UUID g200AccountId = accountRepository.findByName("Merchant Settlement Payable").get().getAccountId();
-        UUID g300AccountId = accountRepository.findByName("Processing Fee Revenue").get().getAccountId();
+        String g100AccountId = accountRepository.findByName("Processor Receivable").get().getAccountId();
+        String g200AccountId = accountRepository.findByName("Merchant Settlement Payable").get().getAccountId();
+        String g300AccountId = accountRepository.findByName("Processing Fee Revenue").get().getAccountId();
 
         String dep2 = "d0000000-0000-0000-0000-000000000002";
        // 4. Enqueue Balanced Double-Entry Ledger SECOND using LedgerClient records directly
@@ -189,13 +183,16 @@ public class PaymentService {
                 "Wallet funding captured",
                 dep2,
                 List.of(
-                        new LedgerLine(g100AccountId, LedgerLineType.DEBIT, 10300L, 0L),   // Debit G100: 10300
-                        new LedgerLine(g200AccountId, LedgerLineType.CREDIT, 0L, 10150L),  // Credit G200: 10150
-                        new LedgerLine(g300AccountId, LedgerLineType.CREDIT, 0L, 150L)     // Credit G300: 150
+                        new LedgerLine(UUID.fromString(g100AccountId), LedgerLineType.DEBIT, 10300L, 0L),   // Debit G100: 10300
+                        new LedgerLine(UUID.fromString(g200AccountId), LedgerLineType.CREDIT, 0L, 10150L),  // Credit G200: 10150
+                        new LedgerLine(UUID.fromString(g300AccountId), LedgerLineType.CREDIT, 0L, 150L)     // Credit G300: 150
                 )
         );
+        //Todo: I need to match this.tenantId and request.tenantId()
+        //this.tenantId = 'payment_gateway_tenant' but request.tenantId = "a UUID"
         outboxRepository.save(
                 new Outbox(UUID.fromString(request.tenantId()), "ledger", "/api/v1/ledgers/transactions", dep2, transactionRequest)
+               
         );
 
 

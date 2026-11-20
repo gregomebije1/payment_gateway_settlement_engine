@@ -27,7 +27,7 @@ public class Account {
     private UUID id;
     
     @Column(name = "account_id", nullable = false)
-    private UUID accountId;
+    private String accountId;
 
     @Column(name = "name", nullable = false)
     private String name;

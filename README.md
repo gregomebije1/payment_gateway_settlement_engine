@@ -184,18 +184,11 @@ curl -X POST "http://localhost:8081/api/v1/onboarding/login" \
 
     curl -X GET "http://localhost:8082/api/v1/setup" 
 
-curl -i -X POST "http://localhost:8082/api/v1/onboarding/user" \
--H "Content-Type: application/json" \
--d '{
-"tenantId": "wallet_tenant",
-"tenantName": "Wallet",
-"email": "wallet_tenant@wallet.com"
-}'
 
 curl -i -X POST "http://localhost:8082/api/v1/gateway/v1/charges" \
 -H "Content-Type: application/json" \
 -d '{
-    "tenantId": "8c387631-dc6b-45fe-95ff-09c2f7c9c620",
+    "tenantId": "15654484-09dd-4a04-9a4d-b6c3bdd8825d",
     "idempotencyKey": "d0000000-0000-0000-0000-000000000001",
     "amount": 10000,
     "fee": 300,
@@ -203,3 +196,17 @@ curl -i -X POST "http://localhost:8082/api/v1/gateway/v1/charges" \
     "msg1": "e0000000-0000-0000-0000-000000000001"
 }'
 
+
+curl -X POST "http://localhost:8080/api/v1/ledgers/transactions" \
+-H "Authorization: Bearer <your-token>" \
+-H "Content-Type: application/json" \
+-H "Accept: application/json" \
+-d '{
+  "description": "Wallet funding captured",
+  "idempotencyKey": "d0000000-0000-0000-0000-000000000002",
+  "lines": [
+    {"accountId": "ad8e2f80-b832-4085-802a-c902559c29a2", "ledgerLineType": "DEBIT",  "debit": 10300, "credit": 0},
+    {"accountId": "10415008-dda3-4d51-96be-65a40e470f7b", "ledgerLineType": "CREDIT", "debit": 0, "credit": 10150},
+    {"accountId": "b5fecbf0-7800-4392-9d84-88ffdd41e575", "ledgerLineType": "CREDIT", "debit": 0, "credit": 150}
+  ]
+}'

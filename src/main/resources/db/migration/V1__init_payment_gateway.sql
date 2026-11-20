@@ -19,13 +19,6 @@ CREATE TABLE IF NOT EXISTS tenant (
     available BIGINT NOT NULL DEFAULT 0 CHECK (available >= 0)
 );
 
-CREATE TABLE IF NOT EXISTS inbox (
-    tenant_id UUID NOT NULL REFERENCES tenant(id),
-    message_id VARCHAR(255) NOT NULL,
-    received_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (tenant_id, message_id)
-);
-
 CREATE TABLE IF NOT EXISTS payments (
     id UUID PRIMARY KEY,
     idempotency_key VARCHAR(64) UNIQUE NOT NULL, 
@@ -35,6 +28,45 @@ CREATE TABLE IF NOT EXISTS payments (
     status VARCHAR(32) NOT NULL, -- CAPTURED | SETTLED
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+/*
+CREATE TABLE payments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), 
+  provider_ref TEXT UNIQUE NOT NULL, 
+  tenant TEXT NOT NULL,
+  amount BIGINT NOT NULL, 
+  fee BIGINT NOT NULL,
+  status TEXT NOT NULL, -- CAPTURED | SETTLED
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);     
+*/
+/*
+CREATE TABLE payments (
+  id UUID PRIMARY KEY,             -- = charge id from the Wallet Service
+  amount BIGINT NOT NULL, 
+  fee BIGINT NOT NULL,
+  status TEXT NOT NULL,                                 -- CAPTURED | SETTLED
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now());
+*/
+  
+
+CREATE TABLE payouts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), 
+  idempotency_key TEXT UNIQUE NOT NULL, 
+  tenant TEXT NOT NULL,
+  amount BIGINT NOT NULL, 
+  status TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+CREATE TABLE IF NOT EXISTS inbox (
+    tenant_id UUID NOT NULL REFERENCES tenant(id),
+    message_id VARCHAR(255) NOT NULL,
+    received_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (tenant_id, message_id)
+);
+
 
 CREATE TABLE IF NOT EXISTS outbox (
     id BIGSERIAL PRIMARY KEY,
@@ -53,36 +85,4 @@ CREATE TABLE IF NOT EXISTS outbox (
 CREATE INDEX IF NOT EXISTS idx_outbox_pending
     ON outbox (next_attempt_at, id)
     WHERE status = 'PENDING';
-
-/*
-CREATE TABLE payments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), 
-  provider_ref TEXT UNIQUE NOT NULL, 
-  tenant TEXT NOT NULL,
-  amount BIGINT NOT NULL, 
-  fee BIGINT NOT NULL,
-  status TEXT NOT NULL, -- CAPTURED | SETTLED
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);     
-*/
-
-
-   
-/*
-CREATE TABLE payments (
-  id UUID PRIMARY KEY,             -- = charge id from the Wallet Service
-  amount BIGINT NOT NULL, 
-  fee BIGINT NOT NULL,
-  status TEXT NOT NULL,                                 -- CAPTURED | SETTLED
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now());
-*/
-  
-CREATE TABLE payouts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), 
-  idempotency_key TEXT UNIQUE NOT NULL, 
-  tenant TEXT NOT NULL,
-  amount BIGINT NOT NULL, 
-  status TEXT NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
 

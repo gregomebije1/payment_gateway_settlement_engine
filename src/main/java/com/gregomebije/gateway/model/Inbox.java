@@ -1,9 +1,9 @@
 package com.gregomebije.gateway.model;
 
 import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
+
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -13,8 +13,8 @@ public class Inbox {
     @EmbeddedId
     private InboxId id;
 
-    @CreationTimestamp
-    @Column(name = "received_at", nullable = false, updatable = false)
+    @Generated(event = EventType.INSERT)
+    @Column(name = "received_at", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime receivedAt;
 
     protected Inbox() {}
