@@ -124,8 +124,8 @@ class LedgerClientTest {
                 "Unbalanced",
                 "unbalanced-" + UUID.randomUUID(),
                 List.of(
-                        new LedgerLine(fundingId, LedgerLineType.DEBIT, 100_000L, 0L),
-                        new LedgerLine(aliceId, LedgerLineType.CREDIT, 0L, 50_000L)
+                        new LedgerLine(fundingId, "", LedgerLineType.DEBIT, 100_000L, 0L),
+                        new LedgerLine(aliceId, "", LedgerLineType.CREDIT, 0L, 50_000L)
                 )
         );
 
@@ -169,8 +169,8 @@ class LedgerClientTest {
                 "Fund Alice",
                 idempotencyKey,
                 List.of(
-                        new LedgerLine(debitAccountId, LedgerLineType.DEBIT, 100_000L, 0L),
-                        new LedgerLine(creditAccountId, LedgerLineType.CREDIT, 0L, 100_000L)
+                        new LedgerLine(debitAccountId, "", LedgerLineType.DEBIT, 100_000L, 0L),
+                        new LedgerLine(creditAccountId, "", LedgerLineType.CREDIT, 0L, 100_000L)
                 )
         );
     }

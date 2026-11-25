@@ -66,7 +66,11 @@ public class PaymentService {
         List<CreateAccountRequest> specs = List.of(
             new CreateAccountRequest("G100", "Processor Receivable", AccountType.ASSET, "USD"),
             new CreateAccountRequest("G110", "Gateway Bank", AccountType.ASSET, "USD"),
-            new CreateAccountRequest("G200", "Merchant Settlement Payable", AccountType.LIABILITY, "USD"),
+             
+            // A line may carry a sub_ref: the merchant id on G200
+            // That gives per-customer balances inside one account (a sub-ledger) 
+            // without creating an account per customer.
+            new CreateAccountRequest("G200", "Merchant Settlement Payable", AccountType.LIABILITY, "USD"), 
             new CreateAccountRequest("G300", "Processing Fee Revenue", AccountType.REVENUE, "USD"),
             new CreateAccountRequest("G400", "Interchange Expense", AccountType.EXPENSE, "USD")
         );
@@ -143,11 +147,14 @@ public class PaymentService {
 
         */
         // 1. Tenant-scoped deduplication check
-        int insertedRows = inboxRepository.insertIgnoreConflict(UUID.fromString(request.tenantId()), request.idempotencyKey());
+        int insertedRows = inboxRepository.insertIgnoreConflict(
+            UUID.fromString(request.tenantId()), request.idempotencyKey());
         if (insertedRows == 0) {
-            return paymentRepository.findByTenantIdAndIdempotencyKey(UUID.fromString(request.tenantId()), request.idempotencyKey())
+            return paymentRepository.findByTenantIdAndIdempotencyKey(
+                UUID.fromString(request.tenantId()), request.idempotencyKey())
                       .map(p -> new CaptureResult(p.getId().toString(), p.getStatus()))
-                    .orElseThrow(() -> new IllegalStateException("Duplicate inbox key with no payment: " + request.idempotencyKey()));
+                    .orElseThrow(() -> new IllegalStateException(
+                        "Duplicate inbox key with no payment: " + request.idempotencyKey()));
         }
 
         // 2. Insert captured payment tied to tenant
@@ -183,19 +190,22 @@ public class PaymentService {
                 "Wallet funding captured",
                 dep2,
                 List.of(
-                        new LedgerLine(UUID.fromString(g100AccountId), LedgerLineType.DEBIT, 10300L, 0L),   // Debit G100: 10300
-                        new LedgerLine(UUID.fromString(g200AccountId), LedgerLineType.CREDIT, 0L, 10150L),  // Credit G200: 10150
-                        new LedgerLine(UUID.fromString(g300AccountId), LedgerLineType.CREDIT, 0L, 150L)     // Credit G300: 150
+                        new LedgerLine(UUID.fromString(g100AccountId), 
+                            request.tenantId(), LedgerLineType.DEBIT,  10300L, 0L),  
+                        new LedgerLine(UUID.fromString(g200AccountId), 
+                            request.tenantId(),  LedgerLineType.CREDIT, 0L, 10150L),  
+                        new LedgerLine(UUID.fromString(g300AccountId), 
+                            request.tenantId(), LedgerLineType.CREDIT, 0L, 150L) 
                 )
         );
         //Todo: I need to match this.tenantId and request.tenantId()
         //this.tenantId = 'payment_gateway_tenant' but request.tenantId = "a UUID"
         outboxRepository.save(
-                new Outbox(UUID.fromString(request.tenantId()), "ledger", "/api/v1/ledgers/transactions", dep2, transactionRequest)
+                new Outbox(UUID.fromString(request.tenantId()), 
+                    "ledger", "/api/v1/ledgers/transactions", dep2, transactionRequest)
                
         );
-
-
+        
         return new CaptureResult(payment.getId().toString(), payment.getStatus());
     }
 }

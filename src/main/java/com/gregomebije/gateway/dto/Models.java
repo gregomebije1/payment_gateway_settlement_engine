@@ -24,11 +24,16 @@ public final class Models {
     public record LoginResponse (  String accessToken ) {}
 
     public record CreateUserRequest (String email,  String password,  String firstName,  String lastName ) {}
-    public record CreateTenantRequest (  String email, String tenantId,  String tenantName ) {}
+    public record CreateTenantRequest (  String email, String tenantId,  String tenantName, String webhookURL, String token ) {}
     
     public record CreateAccountRequest (  String accountNumber,  String name,  AccountType type,  String currency ) {}
     public record CreateTransactionRequest ( String description,  String idempotencyKey,  List<LedgerLine> lines ) {}
-    public record LedgerLine(UUID accountId, LedgerLineType ledgerLineType, long debit, long credit) {}
+
+    // A line may carry a sub_ref: the customer wallet Id or merchant id
+    // That gives per-customer balances inside one account (a sub-ledger) 
+    // without creating an account per customer.
+    public record LedgerLine(UUID accountId, String subRef, LedgerLineType ledgerLineType, long debit, long credit) {}
+
 
     public record CreateChargeRequest(String tenantId,
                 String idempotencyKey,
